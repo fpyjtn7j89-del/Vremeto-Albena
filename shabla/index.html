@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Шабла">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2c4f7a">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<title>Времето в Шабла</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: една сцена — голямо „сега“ отляво, море + вятър отдясно, крива за 24 часа и 7 дни отдолу */
+:root{
+  --bg:#eef3f6; --panel:#ffffff; --ink:#0f2433; --muted:#5b6f7d; --line:#d6e1e8;
+  --sea:#0e6f8f; --sun:#e09a1b; --cold:#3d7fc4;
+  --f-display:"Unbounded","Segoe UI",system-ui,sans-serif;
+  --f-body:"Manrope","Segoe UI",system-ui,sans-serif;
+  --f-data:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0b1820; --panel:#11232e; --ink:#e4eef3; --muted:#8aa1ae; --line:#1f3a49;
+  --sea:#4cb6d6; --sun:#f0b44a; --cold:#7fb0e6; color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);padding:calc(24px + env(safe-area-inset-top,0px)) calc(20px + env(safe-area-inset-right,0px)) calc(40px + env(safe-area-inset-bottom,0px)) calc(20px + env(safe-area-inset-left,0px));-webkit-text-size-adjust:100%}
+button{min-height:40px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 20px}
+h1{font:600 22px/1.2 var(--f-display);margin:0;letter-spacing:-.01em}
+h1 small{font:500 13px var(--f-body);color:var(--muted);margin-left:10px;letter-spacing:0}
+.status{font:12px var(--f-data);color:var(--muted);display:flex;gap:12px;align-items:center}
+button{font:500 13px var(--f-body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--sea)}
+button:focus-visible{outline:2px solid var(--sea);outline-offset:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;min-width:0}
+.label{font:600 11px var(--f-body);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+.top{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+.now{display:grid;grid-template-columns:auto 1fr;gap:6px 28px;align-items:center}
+.temp{font:400 104px/0.9 var(--f-display);letter-spacing:-.05em;font-variant-numeric:tabular-nums}
+.temp sup{font-size:.38em;vertical-align:.95em;margin-left:2px;color:var(--muted)}
+.cond{font:600 20px/1.3 var(--f-body)}
+.feels{color:var(--muted)}
+.icon{width:72px;height:72px}
+.facts{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.fact b{display:block;font:500 18px var(--f-data);font-variant-numeric:tabular-nums}
+.fact span{font-size:12px;color:var(--muted)}
+.side{display:grid;gap:18px}
+.sea{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.big{font:400 40px/1 var(--f-display);font-variant-numeric:tabular-nums;color:var(--sea)}
+.big small{font-size:.45em;color:var(--muted);margin-left:3px}
+.sub{font-size:12px;color:var(--muted)}
+.wind{display:flex;gap:20px;align-items:center}
+.compass{width:96px;height:96px;flex:none}
+.chartbox{overflow-x:auto}
+#chart{display:block;width:100%;min-width:640px;height:220px}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+.day{display:grid;gap:4px;justify-items:center;text-align:center;padding:12px 6px;border-radius:10px}
+.day.today{background:color-mix(in srgb,var(--sea) 10%,transparent)}
+.day .d{font-weight:700}
+.day .dt{font:11px var(--f-data);color:var(--muted)}
+.day svg{width:40px;height:40px}
+.day .hi{font:500 17px var(--f-data)}
+.day .lo{font:13px var(--f-data);color:var(--muted)}
+.day .rain{font:11px var(--f-data);color:var(--cold);min-height:16px}
+.bar{width:6px;border-radius:3px;background:linear-gradient(var(--sun),var(--cold));height:44px;position:relative;opacity:.85}
+.err{border-color:#c0504d;color:#c0504d}
+footer{font-size:12px;color:var(--muted)}
+footer a{color:var(--sea)}
+@media (max-width:860px){.top{grid-template-columns:1fr}.days{grid-template-columns:repeat(4,1fr)}.facts{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:480px){.temp{font-size:80px}.days{grid-template-columns:repeat(2,1fr)}}
+@media (prefers-reduced-motion:no-preference){.fade{animation:f .5s ease both}@keyframes f{from{opacity:.4}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Шабла <small>43.54° с.ш. · 28.54° и.д. · Черно море</small></h1>
+    <div class="status"><span id="upd">Зареждане…</span><button id="refresh" type="button">Обнови</button></div>
+  </header>
+
+  <div id="error" class="panel err" hidden></div>
+
+  <section class="top">
+    <div class="panel now fade" id="nowPanel">
+      <div class="temp" id="tNow">–<sup>°C</sup></div>
+      <div>
+        <svg class="icon" id="iNow" viewBox="0 0 64 64"></svg>
+        <div class="cond" id="cNow">–</div>
+        <div class="feels" id="fNow">Усеща се като –</div>
+        <div class="sub" id="hilo">Макс. – · Мин. –</div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b id="hum">–</b><span>Влажност</span></div>
+        <div class="fact"><b id="pres">–</b><span>Налягане, hPa</span></div>
+        <div class="fact"><b id="uv">–</b><span>UV индекс днес</span></div>
+        <div class="fact"><b id="sun">–</b><span>Изгрев · залез</span></div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="panel">
+        <p class="label">Морето</p>
+        <div class="sea">
+          <div><div class="big" id="sst">–<small>°C</small></div><div class="sub">Температура на водата</div></div>
+          <div><div class="big" id="wave">–<small>м</small></div><div class="sub" id="waveSub">Височина на вълните</div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="label">Вятър</p>
+        <div class="wind">
+          <svg class="compass" viewBox="0 0 100 100" id="compass"></svg>
+          <div>
+            <div class="big" id="wsp" style="color:var(--ink)">–<small>м/с</small></div>
+            <div class="sub" id="wdir">–</div>
+            <div class="sub" id="gust">Пориви –</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <p class="label">Следващите 24 часа</p>
+    <div class="chartbox"><svg id="chart" viewBox="0 0 960 220" preserveAspectRatio="none"></svg></div>
+  </section>
+
+  <section class="panel">
+    <p class="label">7 дни</p>
+    <div class="days" id="days"></div>
+  </section>
+
+  <footer>Данни: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (прогноза и морски модел). Обновява се автоматично на всеки 15 минути, и при всяко отваряне.</footer>
+</div>
+
+<script>
+const LAT=43.539, LON=28.535, SEA_LAT=43.54, SEA_LON=28.63;
+const WX={0:["Ясно","sun"],1:["Предимно ясно","sun"],2:["Разкъсана облачност","part"],3:["Облачно","cloud"],
+45:["Мъгла","fog"],48:["Мъгла със скреж","fog"],51:["Слаб ръмеж","drizzle"],53:["Ръмеж","drizzle"],55:["Силен ръмеж","drizzle"],
+56:["Леден ръмеж","drizzle"],57:["Леден ръмеж","drizzle"],61:["Слаб дъжд","rain"],63:["Дъжд","rain"],65:["Силен дъжд","rain"],
+66:["Леден дъжд","rain"],67:["Леден дъжд","rain"],71:["Слаб сняг","snow"],73:["Сняг","snow"],75:["Силен сняг","snow"],77:["Снежни зърна","snow"],
+80:["Краткотраен дъжд","rain"],81:["Валежи","rain"],82:["Поройни валежи","rain"],85:["Снежни превалявания","snow"],86:["Силни снеговалежи","snow"],
+95:["Гръмотевична буря","storm"],96:["Буря с градушка","storm"],99:["Буря с градушка","storm"]};
+const DIRS=["С","ССИ","СИ","ИСИ","И","ИЮИ","ЮИ","ЮЮИ","Ю","ЮЮЗ","ЮЗ","ЗЮЗ","З","ЗСЗ","СЗ","ССЗ"];
+const DIRN=["северен","североизточен","източен","югоизточен","южен","югозападен","западен","северозападен"];
+const DAYS=["Нд","Пн","Вт","Ср","Чт","Пт","Сб"];
+const $=id=>document.getElementById(id);
+const r=v=>v==null?"–":Math.round(v);
+const hm=s=>s?s.slice(11,16):"–";
+
+function beaufort(ms){const t=[0.3,1.6,3.4,5.5,8,10.8,13.9,17.2,20.8,24.5,28.5,32.7];let b=0;while(b<t.length&&ms>=t[b])b++;return b;}
+
+function icon(kind,night){
+  const sun=night
+    ?'<path d="M38 14a16 16 0 1 0 12 26A13 13 0 0 1 38 14z" fill="var(--muted)"/>'
+    :'<g stroke="var(--sun)" stroke-width="3" stroke-linecap="round"><path d="M32 6v6M32 52v6M6 32h6M52 32h6M13.6 13.6l4.2 4.2M46.2 46.2l4.2 4.2M13.6 50.4l4.2-4.2M46.2 17.8l4.2-4.2"/></g><circle cx="32" cy="32" r="11" fill="var(--sun)"/>';
+  const cloud=(x=0,y=0,c="var(--muted)")=>`<path transform="translate(${x} ${y})" d="M18 46h28a10 10 0 0 0 0-20 14 14 0 0 0-27-3A11.5 11.5 0 0 0 18 46z" fill="${c}"/>`;
+  const drops=c=>`<g stroke="${c}" stroke-width="3" stroke-linecap="round"><path d="M22 52l-3 7M32 52l-3 7M42 52l-3 7"/></g>`;
+  switch(kind){
+    case"sun":return sun;
+    case"part":return `<g transform="translate(-8 -8) scale(.8)">${sun}</g>`+cloud(4,4);
+    case"cloud":return cloud(0,0);
+    case"fog":return cloud(0,-6)+'<g stroke="var(--muted)" stroke-width="3" stroke-linecap="round"><path d="M12 50h40M18 57h30"/></g>';
+    case"drizzle":return cloud(0,-6)+'<g fill="var(--cold)"><circle cx="22" cy="54" r="2"/><circle cx="32" cy="57" r="2"/><circle cx="42" cy="54" r="2"/></g>';
+    case"rain":return cloud(0,-6)+drops("var(--cold)");
+    case"snow":return cloud(0,-6)+'<g fill="var(--cold)"><circle cx="22" cy="54" r="3"/><circle cx="32" cy="58" r="3"/><circle cx="42" cy="54" r="3"/></g>';
+    case"storm":return cloud(0,-6)+'<path d="M34 44l-8 10h7l-4 9 11-13h-7l4-6z" fill="var(--sun)"/>';
+  }
+  return cloud();
+}
+
+function compass(deg){
+  let s='<circle cx="50" cy="50" r="44" fill="none" stroke="var(--line)" stroke-width="2"/>';
+  for(let i=0;i<16;i++){const a=i*22.5*Math.PI/180,l=i%4?4:8;
+    s+=`<line x1="${50+40*Math.sin(a)}" y1="${50-40*Math.cos(a)}" x2="${50+(40-l)*Math.sin(a)}" y2="${50-(40-l)*Math.cos(a)}" stroke="var(--muted)" stroke-width="1.5"/>`;}
+  [["С",50,20],["И",82,54],["Ю",50,88],["З",18,54]].forEach(([t,x,y])=>s+=`<text x="${x}" y="${y}" text-anchor="middle" font-size="10" font-family="Manrope,sans-serif" font-weight="700" fill="var(--muted)">${t}</text>`);
+  // стрелка сочи накъдето духа вятърът (от deg към deg+180)
+  s+=`<g transform="rotate(${deg+180} 50 50)"><path d="M50 22l7 20h-14z" fill="var(--sea)"/><line x1="50" y1="40" x2="50" y2="74" stroke="var(--sea)" stroke-width="3" stroke-linecap="round"/></g>`;
+  return s;
+}
+
+function chart(h){
+  const svg=$("chart"),W=960,H=220,P={l:36,r:16,t:30,b:44};
+  const n=h.t.length, xs=i=>P.l+i*(W-P.l-P.r)/(n-1);
+  const lo=Math.floor(Math.min(...h.t))-1, hi=Math.ceil(Math.max(...h.t))+1;
+  const ys=v=>P.t+(hi-v)*(H-P.t-P.b)/(hi-lo||1);
+  let s="";
+  // мрежа
+  const step=Math.max(1,Math.ceil((hi-lo)/4));
+  for(let v=Math.ceil(lo/step)*step;v<=hi;v+=step){s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--line)"/><text x="${P.l-8}" y="${ys(v)+4}" text-anchor="end" font-size="11" font-family="JetBrains Mono,monospace" fill="var(--muted)">${v}°</text>`;}
+  // валеж (стълбчета, вероятност)
+  const bw=(W-P.l-P.r)/(n-1)*0.55;
+  h.p.forEach((p,i)=>{if(p>0){const bh=(H-P.t-P.b)*p/100*0.6;s+=`<rect x="${xs(i)-bw/2}" y="${H-P.b-bh}" width="${bw}" height="${bh}" rx="2" fill="var(--cold)" opacity=".22"/>`;}});
+  const pts=h.t.map((v,i)=>[xs(i),ys(v)]);
+  const line=pts.map((p,i)=>(i?"L":"M")+p[0].toFixed(1)+" "+p[1].toFixed(1)).join(" ");
+  s+=`<defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--sun)" stop-opacity=".28"/><stop offset="1" stop-color="var(--sun)" stop-opacity="0"/></linearGradient></defs>`;
+  s+=`<path d="${line} L${xs(n-1)} ${H-P.b} L${xs(0)} ${H-P.b}Z" fill="url(#ga)"/>`;
+  s+=`<path d="${line}" fill="none" stroke="var(--sun)" stroke-width="2.5" stroke-linejoin="round"/>`;
+  pts.forEach((p,i)=>{
+    if(i%3===0||i===n-1){
+      s+=`<circle cx="${p[0]}" cy="${p[1]}" r="${i===0?5:3}" fill="${i===0?"var(--sun)":"var(--panel)"}" stroke="var(--sun)" stroke-width="2"/>`;
+      s+=`<text x="${p[0]}" y="${p[1]-10}" text-anchor="middle" font-size="12" font-family="JetBrains Mono,monospace" font-weight="500" fill="var(--ink)">${Math.round(h.t[i])}°</text>`;
+      s+=`<text x="${p[0]}" y="${H-P.b+18}" text-anchor="middle" font-size="11" font-family="JetBrains Mono,monospace" fill="var(--muted)">${i===0?"сега":h.time[i].slice(11,16)}</text>`;
+      if(h.p[i]>=20)s+=`<text x="${p[0]}" y="${H-P.b+34}" text-anchor="middle" font-size="10" font-family="JetBrains Mono,monospace" fill="var(--cold)">${h.p[i]}%</text>`;
+    }
+  });
+  svg.innerHTML=s;
+}
+
+async function load(){
+  $("upd").textContent="Обновяване…";
+  const fUrl=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&timezone=Europe%2FSofia&wind_speed_unit=ms&forecast_days=7`+
+    `&current=temperature_2m,apparent_temperature,relative_humidity_2m,is_day,weather_code,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m`+
+    `&hourly=temperature_2m,precipitation_probability,weather_code`+
+    `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,sunrise,sunset,uv_index_max,wind_speed_10m_max`;
+  const mUrl=`https://marine-api.open-meteo.com/v1/marine?latitude=${SEA_LAT}&longitude=${SEA_LON}&timezone=Europe%2FSofia&current=sea_surface_temperature,wave_height,wave_period`;
+  try{
+    const [f,m]=await Promise.all([fetch(fUrl).then(x=>{if(!x.ok)throw new Error("прогноза "+x.status);return x.json()}),
+                                   fetch(mUrl).then(x=>x.ok?x.json():null).catch(()=>null)]);
+    render(f,m);
+    $("error").hidden=true;
+    $("upd").textContent="Обновено "+new Date().toLocaleTimeString("bg-BG",{hour:"2-digit",minute:"2-digit"});
+  }catch(e){
+    $("error").hidden=false;
+    $("error").textContent="Няма връзка с метеорологичната услуга ("+e.message+"). Проверете интернет връзката и натиснете „Обнови“.";
+    $("upd").textContent="Грешка при обновяване";
+  }
+}
+
+function render(f,m){
+  const c=f.current,d=f.daily,night=!c.is_day;
+  const [txt,kind]=WX[c.weather_code]||["–","cloud"];
+  $("tNow").innerHTML=r(c.temperature_2m)+"<sup>°C</sup>";
+  $("iNow").innerHTML=icon(kind,night);
+  $("cNow").textContent=txt;
+  $("fNow").textContent="Усеща се като "+r(c.apparent_temperature)+"°";
+  $("hilo").textContent="Макс. "+r(d.temperature_2m_max[0])+"° · Мин. "+r(d.temperature_2m_min[0])+"°";
+  $("hum").textContent=r(c.relative_humidity_2m)+"%";
+  $("pres").textContent=r(c.pressure_msl);
+  $("uv").textContent=d.uv_index_max[0]!=null?d.uv_index_max[0].toFixed(1):"–";
+  $("sun").textContent=hm(d.sunrise[0])+" · "+hm(d.sunset[0]);
+  const ws=c.wind_speed_10m;
+  $("wsp").innerHTML=ws.toFixed(1)+"<small>м/с</small>";
+  $("wdir").textContent=DIRS[Math.round(c.wind_direction_10m/22.5)%16]+" · "+DIRN[Math.round(c.wind_direction_10m/45)%8]+", "+beaufort(ws)+" бала по Бофорт";
+  $("gust").textContent="Пориви до "+c.wind_gusts_10m.toFixed(1)+" м/с";
+  $("compass").innerHTML=compass(c.wind_direction_10m);
+  if(m&&m.current){
+    $("sst").innerHTML=(m.current.sea_surface_temperature!=null?m.current.sea_surface_temperature.toFixed(1):"–")+"<small>°C</small>";
+    $("wave").innerHTML=(m.current.wave_height!=null?m.current.wave_height.toFixed(1):"–")+"<small>м</small>";
+    $("waveSub").textContent="Вълни"+(m.current.wave_period?", период "+m.current.wave_period.toFixed(0)+" с":"");
+  }
+  // 24 часа от текущия час
+  const nowH=c.time.slice(0,13);
+  let i0=f.hourly.time.findIndex(t=>t.slice(0,13)===nowH); if(i0<0)i0=0;
+  const sl=a=>a.slice(i0,i0+25);
+  chart({time:sl(f.hourly.time),t:sl(f.hourly.temperature_2m),p:sl(f.hourly.precipitation_probability).map(v=>v||0)});
+  // 7 дни
+  $("days").innerHTML=d.time.map((t,i)=>{
+    const dt=new Date(t+"T12:00:00"),[tx,k]=WX[d.weather_code[i]]||["–","cloud"];
+    const rain=d.precipitation_probability_max[i]>=20?`${d.precipitation_probability_max[i]}% · ${d.precipitation_sum[i].toFixed(1)} мм`:"";
+    return `<div class="day${i===0?" today":""}" title="${tx}">
+      <div class="d">${i===0?"Днес":DAYS[dt.getDay()]}</div>
+      <div class="dt">${String(dt.getDate()).padStart(2,"0")}.${String(dt.getMonth()+1).padStart(2,"0")}</div>
+      <svg viewBox="0 0 64 64">${icon(k,false)}</svg>
+      <div class="hi">${r(d.temperature_2m_max[i])}°</div>
+      <div class="lo">${r(d.temperature_2m_min[i])}°</div>
+      <div class="rain">${rain}</div>
+      <div class="sub">${tx}</div>
+    </div>`;}).join("");
+  document.querySelectorAll(".panel").forEach(p=>{p.classList.remove("fade");void p.offsetWidth;p.classList.add("fade")});
+}
+
+$("refresh").addEventListener("click",load);
+load();
+setInterval(load,15*60*1000);
+// iPad спира таймерите на заден план — обновяваме при връщане към приложението
+let last=Date.now();
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-last>5*60*1000){last=Date.now();load();}});
+</script>
+</body>
+</html>
